@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas 5 Pages - Firebase Read-Only & Filter Today</title>
+    <title>Javaplas 5 Pages - Detail Popup</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -32,6 +32,8 @@
         .data-table th { background-color: #4a3223; color: #f7e1b5; position: sticky; top: 0; text-transform: uppercase; }
 
         .form-control { background: #241810; border: 1px solid #5c3a21; border-radius: 3px; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 11px; padding: 5px; outline: none; }
+        .btn-detail { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-family: 'Courier New', Courier, monospace; font-weight: bold; margin-right: 5px; }
+        .btn-detail:hover { background-color: #70472a; }
 
         .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
         .note-card { background-color: #3b281a; border: 2px solid #8c5830; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
@@ -47,12 +49,15 @@
         .cal-day-num { font-weight: bold; font-size: 11px; }
         .cal-memo-text { font-size: 9.5px; color: #d1b288; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 
-        /* Modal Box untuk Detail Memo Kalender */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 400px; max-width: 90%; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
-        .modal-box h3 { font-size: 14px; border-bottom: 1px solid #5c3a21; padding-bottom: 5px; color: #f7e1b5; }
-        .modal-box textarea { background: #241810; border: 1px solid #5c3a21; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 12px; padding: 8px; width: 100%; height: 120px; resize: none; outline: none; }
-        .btn-close { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 11px; align-self: flex-end; }
+        /* Modal Box Umum untuk Detail Data */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 450px; max-width: 90%; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
+        .modal-box h3 { font-size: 15px; border-bottom: 1px solid #5c3a21; padding-bottom: 6px; color: #f7e1b5; text-transform: uppercase; }
+        .modal-content-list { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #f4e8c1; }
+        .modal-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #4a3223; padding-bottom: 4px; gap: 10px; }
+        .modal-label { font-weight: bold; color: #d1b288; width: 130px; flex-shrink: 0; }
+        .modal-val { text-align: right; word-break: break-all; }
+        .btn-close { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 11px; align-self: flex-end; margin-top: 5px; }
         .btn-close:hover { background-color: #70472a; }
     </style>
 </head>
@@ -137,11 +142,11 @@
         <div class="calendar-grid" id="calendar-grid-box"></div>
     </div>
 
-    <!-- MODAL POPUP DETAIL MEMO KALENDER -->
-    <div id="cal-modal" class="modal-overlay">
+    <!-- MODAL POPUP DETAIL UMUM -->
+    <div id="general-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3 id="modal-date-title">Detail Memo</h3>
-            <textarea id="modal-memo-text" readonly></textarea>
+            <h3 id="modal-title">Detail Data</h3>
+            <div id="modal-body" class="modal-content-list"></div>
             <button class="btn-close" onclick="closeModal()">Tutup</button>
         </div>
     </div>
@@ -254,7 +259,7 @@
             reader.readAsText(file);
         }
 
-        // --- PAGE 1 & 2: STICKY NOTES (READ-ONLY) ---
+        // --- PAGE 1 & 2: STICKY NOTES ---
         function renderStickyCoba(data) {
             const container = document.getElementById('container-notes-coba');
             container.innerHTML = '';
@@ -284,15 +289,10 @@
         function loadOrders() {
             db.ref('orderan_masuk').once('value', (snapshot) => {
                 allOrders = snapshot.val() || {};
-                
-                // Set otomatis filter tanggal hari ini saat pertama kali dibuka
                 const today = new Date();
                 const day = today.getDate().toString();
                 const monthName = monthsName[today.getMonth()].toLowerCase();
-                const year = today.getFullYear().toString();
-                
                 document.getElementById('filter-ord-tgl').value = `${day} ${monthName}`;
-                
                 filterOrders();
             });
         }
@@ -307,8 +307,10 @@
             let idx = 1;
             for (let key in data) {
                 let i = data[key];
+                // Simpan data dalam bentuk string untuk dipanggil saat tombol Detail diklik
+                const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
-                    <td>${idx++}</td>
+                    <td><button class="btn-detail" onclick="showOrderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
                     <td>${i.po}</td>
                     <td>${i.so}</td>
                     <td>${i.tgl}</td>
@@ -318,6 +320,20 @@
                     <td>${i.ket}</td>
                 </tr>`;
             }
+        }
+
+        function showOrderDetail(jsonStr) {
+            const i = JSON.parse(jsonStr);
+            let html = `
+                <div class="modal-row"><span class="modal-label">No PO</span><span class="modal-val">${i.po}</span></div>
+                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.so}</span></div>
+                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${i.tgl}</span></div>
+                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.cust}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.job}</span></div>
+                <div class="modal-row"><span class="modal-label">Ukuran</span><span class="modal-val">${i.ukur}</span></div>
+                <div class="modal-row"><span class="modal-label">Keterangan</span><span class="modal-val">${i.ket}</span></div>
+            `;
+            openModal("Detail Orderan Masuk", html);
         }
 
         function filterOrders() {
@@ -346,14 +362,10 @@
         function loadCylinders() {
             db.ref('cylinder_list').once('value', (snapshot) => {
                 allCylinders = snapshot.val() || {};
-                
-                // Set otomatis filter tanggal hari ini jika data cylinder mencantumkan tanggal
                 const today = new Date();
                 const day = today.getDate().toString();
                 const monthName = monthsName[today.getMonth()].toLowerCase();
-                
                 document.getElementById('filter-cyl-tgl').value = `${day} ${monthName}`;
-
                 filterCylinders();
             });
         }
@@ -368,8 +380,9 @@
             let idx = 1;
             for (let key in data) {
                 let i = data[key];
+                const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
-                    <td>${idx++}</td>
+                    <td><button class="btn-detail" onclick="showCylinderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
                     <td>${i.so}</td>
                     <td>${i.cust}</td>
                     <td>${i.job}</td>
@@ -377,6 +390,18 @@
                     <td>${i.cirkum}</td>
                 </tr>`;
             }
+        }
+
+        function showCylinderDetail(jsonStr) {
+            const i = JSON.parse(jsonStr);
+            let html = `
+                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.so}</span></div>
+                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.cust}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.job}</span></div>
+                <div class="modal-row"><span class="modal-label">Panjang Cylinder</span><span class="modal-val">${i.panjang}</span></div>
+                <div class="modal-row"><span class="modal-label">Cirkum Cylinder</span><span class="modal-val">${i.cirkum}</span></div>
+            `;
+            openModal("Detail Cylinder", html);
         }
 
         function filterCylinders() {
@@ -398,7 +423,7 @@
             renderCylindersTable(filtered);
         }
 
-        // --- PAGE 5: KALENDER DENGAN FILTER KATA & MODAL ---
+        // --- PAGE 5: KALENDER ---
         let calDate = new Date();
         function renderCalendar() {
             const year = calDate.getFullYear();
@@ -425,7 +450,6 @@
                     const memoKeyClean = `MEMO_${year}_${month+1}_${d}`;
                     const memoVal = memos[memoKeyClean] || '';
                     const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
-                    
                     const isMatch = keyword && memoVal.toLowerCase().includes(keyword);
 
                     const cell = document.createElement('div');
@@ -433,7 +457,8 @@
                     cell.innerHTML = `<div class="cal-day-num">${d}</div><div class="cal-memo-text">${memoVal}</div>`;
                     
                     cell.onclick = () => {
-                        openModal(`${d} ${monthsName[month]} ${year}`, memoVal || 'Tidak ada catatan pada tanggal ini.');
+                        let html = `<div style="font-size:12px; line-height:1.4; white-space: pre-wrap; word-break: break-all;">${memoVal || 'Tidak ada catatan pada tanggal ini.'}</div>`;
+                        openModal(`Memo Tanggal: ${d} ${monthsName[month]} ${year}`, html);
                     };
                     grid.appendChild(cell);
                 }
@@ -445,14 +470,15 @@
             renderCalendar();
         }
 
-        function openModal(dateStr, content) {
-            document.getElementById('modal-date-title').textContent = `Memo Tanggal: ${dateStr}`;
-            document.getElementById('modal-memo-text').value = content;
-            document.getElementById('cal-modal').style.display = 'flex';
+        // --- FUNGSI MODAL UMUM ---
+        function openModal(title, htmlContent) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = htmlContent;
+            document.getElementById('general-modal').style.display = 'flex';
         }
 
         function closeModal() {
-            document.getElementById('cal-modal').style.display = 'none';
+            document.getElementById('general-modal').style.display = 'none';
         }
 
         // Load data awal dari Firebase saat aplikasi dibuka
