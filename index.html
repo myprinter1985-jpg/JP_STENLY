@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas 5 Pages - Full Complete Detail</title>
+    <title>Javaplas 5 Pages - Fixed Filter</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -49,7 +49,6 @@
         .cal-day-num { font-weight: bold; font-size: 11px; }
         .cal-memo-text { font-size: 9.5px; color: #d1b288; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 
-        /* Modal Box Umum untuk Detail Data */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 500px; max-width: 90%; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
         .modal-box h3 { font-size: 15px; border-bottom: 1px solid #5c3a21; padding-bottom: 6px; color: #f7e1b5; text-transform: uppercase; }
@@ -153,7 +152,6 @@
     </div>
 
     <script>
-        // --- KONFIGURASI FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyD2LntheNaxBqsWxLn5vfXVNdFh-x5Eulo",
             authDomain: "javaplas-database.firebaseapp.com",
@@ -180,7 +178,6 @@
             if (pageNum === 5) renderCalendar();
         }
 
-        // --- IMPORT JSON (MENGAMBIL SEMUA FIELD LENGKAP) ---
         function importCobaJson(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -195,19 +192,15 @@
                     }
                     if (data.orderanMasuk) {
                         db.ref('orderan_masuk').remove().then(() => {
-                            data.orderanMasuk.forEach(o => {
-                                db.ref('orderan_masuk').push(o);
-                            });
+                            data.orderanMasuk.forEach(o => db.ref('orderan_masuk').push(o));
                         });
                     }
                     if (data.cylinderList) {
                         db.ref('cylinder_list').remove().then(() => {
-                            data.cylinderList.forEach(c => {
-                                db.ref('cylinder_list').push(c);
-                            });
+                            data.cylinderList.forEach(c => db.ref('cylinder_list').push(c));
                         });
                     }
-                    alert('Berhasil mengimpor data Coba.html ke Firebase secara lengkap!');
+                    alert('Berhasil mengimpor data Coba.html ke Firebase!');
                     location.reload();
                 } catch (err) { alert('Format file JSON Coba.html tidak valid!'); }
             };
@@ -228,16 +221,12 @@
                     }
                     if (data.orderanMasuk) {
                         db.ref('orderan_masuk').remove().then(() => {
-                            data.orderanMasuk.forEach(o => {
-                                db.ref('orderan_masuk').push(o);
-                            });
+                            data.orderanMasuk.forEach(o => db.ref('orderan_masuk').push(o));
                         });
                     }
                     if (data.cylinderList) {
                         db.ref('cylinder_list').remove().then(() => {
-                            data.cylinderList.forEach(c => {
-                                db.ref('cylinder_list').push(c);
-                            });
+                            data.cylinderList.forEach(c => db.ref('cylinder_list').push(c));
                         });
                     }
                     if (data.calendarMemos) {
@@ -247,14 +236,13 @@
                             }
                         });
                     }
-                    alert('Berhasil mengimpor data Javaplas.html ke Firebase secara lengkap!');
+                    alert('Berhasil mengimpor data Javaplas.html ke Firebase!');
                     location.reload();
                 } catch (err) { alert('Format file JSON Javaplas.html tidak valid!'); }
             };
             reader.readAsText(file);
         }
 
-        // --- PAGE 1 & 2: STICKY NOTES ---
         function renderStickyCoba(data) {
             const container = document.getElementById('container-notes-coba');
             container.innerHTML = '';
@@ -279,15 +267,12 @@
             }
         }
 
-        // --- PAGE 3: ORDERAN MASUK ---
         let allOrders = {};
         function loadOrders() {
             db.ref('orderan_masuk').once('value', (snapshot) => {
                 allOrders = snapshot.val() || {};
-                const today = new Date();
-                const day = today.getDate().toString();
-                const monthName = monthsName[today.getMonth()].toLowerCase();
-                document.getElementById('filter-ord-tgl').value = `${day} ${monthName}`;
+                // Filter dikosongkan agar semua data orderan langsung tampil secara default
+                document.getElementById('filter-ord-tgl').value = '';
                 filterOrders();
             });
         }
@@ -296,7 +281,7 @@
             const tbody = document.getElementById('table-order-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan untuk tanggal hari ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan yang cocok dengan filter.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -355,15 +340,11 @@
             renderOrdersTable(filtered);
         }
 
-        // --- PAGE 4: CYLINDER (DENGAN KELENGKAPAN PENUH SEPERTI DI GAMBAR) ---
         let allCylinders = {};
         function loadCylinders() {
             db.ref('cylinder_list').once('value', (snapshot) => {
                 allCylinders = snapshot.val() || {};
-                const today = new Date();
-                const day = today.getDate().toString();
-                const monthName = monthsName[today.getMonth()].toLowerCase();
-                document.getElementById('filter-cyl-tgl').value = `${day} ${monthName}`;
+                document.getElementById('filter-cyl-tgl').value = '';
                 filterCylinders();
             });
         }
@@ -372,7 +353,7 @@
             const tbody = document.getElementById('table-cyl-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder untuk hari ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder yang cocok dengan filter.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -432,7 +413,6 @@
             renderCylindersTable(filtered);
         }
 
-        // --- PAGE 5: KALENDER ---
         let calDate = new Date();
         function renderCalendar() {
             const year = calDate.getFullYear();
@@ -479,7 +459,6 @@
             renderCalendar();
         }
 
-        // --- FUNGSI MODAL UMUM ---
         function openModal(title, htmlContent) {
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-body').innerHTML = htmlContent;
@@ -490,7 +469,6 @@
             document.getElementById('general-modal').style.display = 'none';
         }
 
-        // Load data awal dari Firebase saat aplikasi dibuka
         window.addEventListener('DOMContentLoaded', () => {
             db.ref('notes_page_1').once('value', (snapshot) => renderStickyCoba(snapshot.val()));
             db.ref('notes_page_2').once('value', (snapshot) => renderStickyJavaplas(snapshot.val()));
