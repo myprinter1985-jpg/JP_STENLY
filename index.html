@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas 5 Pages - Fixed Filter</title>
+    <title>Javaplas - Auto Real-Time Sync</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -76,7 +76,7 @@
         <h2>Page 1: Sticky Notes (Coba)</h2>
         <div class="import-panel">
             <span style="font-size: 11px; font-weight: bold;">Import JSON Coba.html Lama:</span>
-            <input type="file" id="import-coba-file" accept=".json" style="font-size: 11px;" onchange="importCobaJson(event)">
+            <input type="file" id="import-coba-file" accept=".json" style="font-size: 11px;" onchange="importJsonFile(event, 1)">
         </div>
         <div id="container-notes-coba" class="notes-grid"></div>
     </div>
@@ -86,7 +86,7 @@
         <h2>Page 2: Sticky Notes Javaplas</h2>
         <div class="import-panel">
             <span style="font-size: 11px; font-weight: bold;">Import JSON Javaplas.html Lama:</span>
-            <input type="file" id="import-javaplas-file" accept=".json" style="font-size: 11px;" onchange="importJavaplasJson(event)">
+            <input type="file" id="import-javaplas-file" accept=".json" style="font-size: 11px;" onchange="importJsonFile(event, 2)">
         </div>
         <div id="container-notes-javaplas" class="notes-grid"></div>
     </div>
@@ -172,63 +172,48 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(`page-${pageNum}`).classList.add('active');
             document.querySelectorAll('.tab-btn')[pageNum - 1].classList.add('active');
-
-            if (pageNum === 3) loadOrders();
-            if (pageNum === 4) loadCylinders();
-            if (pageNum === 5) renderCalendar();
         }
 
-        function importCobaJson(event) {
+        // --- IMPORT JSON ---
+        function importJsonFile(event, pageTarget) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
+                    
                     if (data.stickyNotes) {
-                        db.ref('notes_page_1').remove().then(() => {
-                            data.stickyNotes.forEach(item => db.ref('notes_page_1').push(item.notes || item));
+                        const noteRef = pageTarget === 1 ? 'notes_page_1' : 'notes_page_2';
+                        db.ref(noteRef).remove().then(() => {
+                            if (Array.isArray(data.stickyNotes)) {
+                                data.stickyNotes.forEach(item => db.ref(noteRef).push(item.notes || item.text || item));
+                            } else {
+                                for (let k in data.stickyNotes) { db.ref(noteRef).push(data.stickyNotes[k]); }
+                            }
                         });
                     }
-                    if (data.orderanMasuk) {
-                        db.ref('orderan_masuk').remove().then(() => {
-                            data.orderanMasuk.forEach(o => db.ref('orderan_masuk').push(o));
-                        });
-                    }
-                    if (data.cylinderList) {
-                        db.ref('cylinder_list').remove().then(() => {
-                            data.cylinderList.forEach(c => db.ref('cylinder_list').push(c));
-                        });
-                    }
-                    alert('Berhasil mengimpor data Coba.html ke Firebase!');
-                    location.reload();
-                } catch (err) { alert('Format file JSON Coba.html tidak valid!'); }
-            };
-            reader.readAsText(file);
-        }
 
-        function importJavaplasJson(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.stickyNotes) {
-                        db.ref('notes_page_2').remove().then(() => {
-                            data.stickyNotes.forEach(item => db.ref('notes_page_2').push(item.notes || item.text || item));
-                        });
-                    }
                     if (data.orderanMasuk) {
                         db.ref('orderan_masuk').remove().then(() => {
-                            data.orderanMasuk.forEach(o => db.ref('orderan_masuk').push(o));
+                            if (Array.isArray(data.orderanMasuk)) {
+                                data.orderanMasuk.forEach(o => db.ref('orderan_masuk').push(o));
+                            } else {
+                                for (let k in data.orderanMasuk) { db.ref('orderan_masuk').push(data.orderanMasuk[k]); }
+                            }
                         });
                     }
+
                     if (data.cylinderList) {
                         db.ref('cylinder_list').remove().then(() => {
-                            data.cylinderList.forEach(c => db.ref('cylinder_list').push(c));
+                            if (Array.isArray(data.cylinderList)) {
+                                data.cylinderList.forEach(c => db.ref('cylinder_list').push(c));
+                            } else {
+                                for (let k in data.cylinderList) { db.ref('cylinder_list').push(data.cylinderList[k]); }
+                            }
                         });
                     }
+
                     if (data.calendarMemos) {
                         db.ref('calendar_memos').remove().then(() => {
                             for (const [key, val] of Object.entries(data.calendarMemos)) {
@@ -236,52 +221,48 @@
                             }
                         });
                     }
-                    alert('Berhasil mengimpor data Javaplas.html ke Firebase!');
-                    location.reload();
-                } catch (err) { alert('Format file JSON Javaplas.html tidak valid!'); }
+
+                    alert('Berhasil mengimpor data ke Firebase!');
+                } catch (err) { alert('Format file JSON tidak valid!'); }
             };
             reader.readAsText(file);
         }
 
-        function renderStickyCoba(data) {
+        // --- REAL-TIME LISTENERS (OTOMATIS MEMBACA PERUBAHAN) ---
+        
+        // Page 1 & 2: Sticky Notes
+        db.ref('notes_page_1').on('value', (snapshot) => {
+            const data = snapshot.val();
             const container = document.getElementById('container-notes-coba');
             container.innerHTML = '';
             if (!data) { container.innerHTML = '<p style="font-size:11px;">Tidak ada data catatan.</p>'; return; }
             for (let key in data) {
-                const card = document.createElement('div');
-                card.className = 'note-card';
-                card.innerHTML = `<textarea readonly>${data[key]}</textarea>`;
-                container.appendChild(card);
+                container.innerHTML += `<div class="note-card"><textarea readonly>${data[key]}</textarea></div>`;
             }
-        }
+        });
 
-        function renderStickyJavaplas(data) {
+        db.ref('notes_page_2').on('value', (snapshot) => {
+            const data = snapshot.val();
             const container = document.getElementById('container-notes-javaplas');
             container.innerHTML = '';
             if (!data) { container.innerHTML = '<p style="font-size:11px;">Tidak ada data catatan.</p>'; return; }
             for (let key in data) {
-                const card = document.createElement('div');
-                card.className = 'note-card';
-                card.innerHTML = `<textarea readonly>${data[key]}</textarea>`;
-                container.appendChild(card);
+                container.innerHTML += `<div class="note-card"><textarea readonly>${data[key]}</textarea></div>`;
             }
-        }
+        });
 
+        // Page 3: Orderan Masuk (Otomatis Sync)
         let allOrders = {};
-        function loadOrders() {
-            db.ref('orderan_masuk').once('value', (snapshot) => {
-                allOrders = snapshot.val() || {};
-                // Filter dikosongkan agar semua data orderan langsung tampil secara default
-                document.getElementById('filter-ord-tgl').value = '';
-                filterOrders();
-            });
-        }
+        db.ref('orderan_masuk').on('value', (snapshot) => {
+            allOrders = snapshot.val() || {};
+            filterOrders();
+        });
 
         function renderOrdersTable(data) {
             const tbody = document.getElementById('table-order-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan yang cocok dengan filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -300,21 +281,6 @@
                     <td>${i.keterangan || i.ket || '-'}</td>
                 </tr>`;
             }
-        }
-
-        function showOrderDetail(jsonStr) {
-            const i = JSON.parse(jsonStr);
-            const tglGabung = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.trim();
-            let html = `
-                <div class="modal-row"><span class="modal-label">No PO</span><span class="modal-val">${i.noPo || i.po || '-'}</span></div>
-                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.noSo || i.so || '-'}</span></div>
-                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${tglGabung}</span></div>
-                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.customer || i.cust || '-'}</span></div>
-                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.namaJob || i.job || '-'}</span></div>
-                <div class="modal-row"><span class="modal-label">Ukuran</span><span class="modal-val">${i.ukuran || i.ukur || '-'}</span></div>
-                <div class="modal-row"><span class="modal-label">Keterangan</span><span class="modal-val">${i.keterangan || i.ket || '-'}</span></div>
-            `;
-            openModal("Detail Orderan Masuk", html);
         }
 
         function filterOrders() {
@@ -340,20 +306,18 @@
             renderOrdersTable(filtered);
         }
 
+        // Page 4: Daftar Cylinder (Otomatis Sync)
         let allCylinders = {};
-        function loadCylinders() {
-            db.ref('cylinder_list').once('value', (snapshot) => {
-                allCylinders = snapshot.val() || {};
-                document.getElementById('filter-cyl-tgl').value = '';
-                filterCylinders();
-            });
-        }
+        db.ref('cylinder_list').on('value', (snapshot) => {
+            allCylinders = snapshot.val() || {};
+            filterCylinders();
+        });
 
         function renderCylindersTable(data) {
             const tbody = document.getElementById('table-cyl-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder yang cocok dengan filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -369,6 +333,93 @@
                     <td>${i.cirkum || i.cirkumCyl || '-'}</td>
                 </tr>`;
             }
+        }
+
+        function filterCylinders() {
+            const fCust = document.getElementById('filter-cyl-cust').value.toLowerCase();
+            const fJob = document.getElementById('filter-cyl-job').value.toLowerCase();
+            const fTgl = document.getElementById('filter-cyl-tgl').value.toLowerCase();
+
+            let filtered = {};
+            for (let key in allCylinders) {
+                let i = allCylinders[key];
+                let cust = (i.customer || i.cust || '').toLowerCase();
+                let job = (i.namaJob || i.job || '').toLowerCase();
+                let tgl = `${i.tanggal || ''} ${i.bulan || ''}`.toLowerCase();
+
+                if (cust.includes(fCust) && job.includes(fJob) && tgl.includes(fTgl)) {
+                    filtered[key] = i;
+                }
+            }
+            renderCylindersTable(filtered);
+        }
+
+        // Page 5: Kalender (Otomatis Sync)
+        let calDate = new Date();
+        db.ref('calendar_memos').on('value', (snapshot) => {
+            renderCalendar(snapshot.val() || {});
+        });
+
+        function renderCalendar(memos) {
+            const year = calDate.getFullYear();
+            const month = calDate.getMonth();
+            document.getElementById('cal-title').textContent = `${monthsName[month]} ${year}`;
+            const keyword = document.getElementById('filter-cal-keyword').value.toLowerCase();
+            
+            const grid = document.getElementById('calendar-grid-box');
+            grid.innerHTML = '';
+
+            ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].forEach(d => {
+                grid.innerHTML += `<div class="cal-header-day">${d}</div>`;
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const totalDays = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
+            for (let d = 1; d <= totalDays; d++) {
+                const memoKeyClean1 = `MEMO_${year}_${month+1}_${d}`;
+                const memoKeyClean2 = `MEMO_${year}_${String(month+1).padStart(2, '0')}_${String(d).padStart(2, '0')}`;
+                const memoVal = memos[memoKeyClean1] || memos[memoKeyClean2] || '';
+                
+                const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
+                const isMatch = keyword && memoVal.toLowerCase().includes(keyword);
+
+                const cell = document.createElement('div');
+                cell.className = `cal-cell ${isToday ? 'today' : ''} ${isMatch ? 'filtered-match' : ''}`;
+                cell.innerHTML = `<div class="cal-day-num">${d}</div><div class="cal-memo-text">${memoVal}</div>`;
+                
+                cell.onclick = () => {
+                    let html = `<div style="font-size:12px; line-height:1.4; white-space: pre-wrap; word-break: break-all;">${memoVal || 'Tidak ada catatan pada tanggal ini.'}</div>`;
+                    openModal(`Memo Tanggal: ${d} ${monthsName[month]} ${year}`, html);
+                };
+                grid.appendChild(cell);
+            }
+        }
+
+        function changeMonth(dir) {
+            calDate.setMonth(calDate.getMonth() + dir);
+            db.ref('calendar_memos').once('value', (snapshot) => {
+                renderCalendar(snapshot.val() || {});
+            });
+        }
+
+        // Modal Handler
+        function showOrderDetail(jsonStr) {
+            const i = JSON.parse(jsonStr);
+            const tglGabung = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.trim();
+            let html = `
+                <div class="modal-row"><span class="modal-label">No PO</span><span class="modal-val">${i.noPo || i.po || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.noSo || i.so || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${tglGabung}</span></div>
+                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.customer || i.cust || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.namaJob || i.job || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Ukuran</span><span class="modal-val">${i.ukuran || i.ukur || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Keterangan</span><span class="modal-val">${i.keterangan || i.ket || '-'}</span></div>
+            `;
+            openModal("Detail Orderan Masuk", html);
         }
 
         function showCylinderDetail(jsonStr) {
@@ -394,71 +445,6 @@
             openModal("Detail Cylinder Lengkap", html);
         }
 
-        function filterCylinders() {
-            const fCust = document.getElementById('filter-cyl-cust').value.toLowerCase();
-            const fJob = document.getElementById('filter-cyl-job').value.toLowerCase();
-            const fTgl = document.getElementById('filter-cyl-tgl').value.toLowerCase();
-
-            let filtered = {};
-            for (let key in allCylinders) {
-                let i = allCylinders[key];
-                let cust = (i.customer || i.cust || '').toLowerCase();
-                let job = (i.namaJob || i.job || '').toLowerCase();
-                let tgl = `${i.tanggal || ''} ${i.bulan || ''}`.toLowerCase();
-
-                if (cust.includes(fCust) && job.includes(fJob) && tgl.includes(fTgl)) {
-                    filtered[key] = i;
-                }
-            }
-            renderCylindersTable(filtered);
-        }
-
-        let calDate = new Date();
-        function renderCalendar() {
-            const year = calDate.getFullYear();
-            const month = calDate.getMonth();
-            document.getElementById('cal-title').textContent = `${monthsName[month]} ${year}`;
-            const keyword = document.getElementById('filter-cal-keyword').value.toLowerCase();
-            
-            db.ref('calendar_memos').once('value', (snapshot) => {
-                const memos = snapshot.val() || {};
-                const grid = document.getElementById('calendar-grid-box');
-                grid.innerHTML = '';
-
-                ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].forEach(d => {
-                    grid.innerHTML += `<div class="cal-header-day">${d}</div>`;
-                });
-
-                const firstDay = new Date(year, month, 1).getDay();
-                const totalDays = new Date(year, month + 1, 0).getDate();
-                const today = new Date();
-
-                for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
-
-                for (let d = 1; d <= totalDays; d++) {
-                    const memoKeyClean = `MEMO_${year}_${month+1}_${d}`;
-                    const memoVal = memos[memoKeyClean] || '';
-                    const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
-                    const isMatch = keyword && memoVal.toLowerCase().includes(keyword);
-
-                    const cell = document.createElement('div');
-                    cell.className = `cal-cell ${isToday ? 'today' : ''} ${isMatch ? 'filtered-match' : ''}`;
-                    cell.innerHTML = `<div class="cal-day-num">${d}</div><div class="cal-memo-text">${memoVal}</div>`;
-                    
-                    cell.onclick = () => {
-                        let html = `<div style="font-size:12px; line-height:1.4; white-space: pre-wrap; word-break: break-all;">${memoVal || 'Tidak ada catatan pada tanggal ini.'}</div>`;
-                        openModal(`Memo Tanggal: ${d} ${monthsName[month]} ${year}`, html);
-                    };
-                    grid.appendChild(cell);
-                }
-            });
-        }
-
-        function changeMonth(dir) {
-            calDate.setMonth(calDate.getMonth() + dir);
-            renderCalendar();
-        }
-
         function openModal(title, htmlContent) {
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-body').innerHTML = htmlContent;
@@ -468,11 +454,6 @@
         function closeModal() {
             document.getElementById('general-modal').style.display = 'none';
         }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            db.ref('notes_page_1').once('value', (snapshot) => renderStickyCoba(snapshot.val()));
-            db.ref('notes_page_2').once('value', (snapshot) => renderStickyJavaplas(snapshot.val()));
-        });
     </script>
 </body>
 </html>
