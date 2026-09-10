@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas 5 Pages - Firebase Read-Only & Filter Calendar</title>
+    <title>Javaplas 5 Pages - Firebase Read-Only & Filter Today</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -112,6 +112,7 @@
             <span style="font-size: 11px; font-weight: bold;">Filter:</span>
             <input type="text" id="filter-cyl-cust" class="form-control" placeholder="Cari Nama Customer..." onkeyup="filterCylinders()">
             <input type="text" id="filter-cyl-job" class="form-control" placeholder="Cari Nama Job..." onkeyup="filterCylinders()">
+            <input type="text" id="filter-cyl-tgl" class="form-control" placeholder="Cari Tanggal..." onkeyup="filterCylinders()">
         </div>
         <div class="table-wrapper">
             <table class="data-table">
@@ -283,7 +284,16 @@
         function loadOrders() {
             db.ref('orderan_masuk').once('value', (snapshot) => {
                 allOrders = snapshot.val() || {};
-                renderOrdersTable(allOrders);
+                
+                // Set otomatis filter tanggal hari ini saat pertama kali dibuka
+                const today = new Date();
+                const day = today.getDate().toString();
+                const monthName = monthsName[today.getMonth()].toLowerCase();
+                const year = today.getFullYear().toString();
+                
+                document.getElementById('filter-ord-tgl').value = `${day} ${monthName}`;
+                
+                filterOrders();
             });
         }
 
@@ -291,7 +301,7 @@
             const tbody = document.getElementById('table-order-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan untuk tanggal hari ini.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -336,7 +346,15 @@
         function loadCylinders() {
             db.ref('cylinder_list').once('value', (snapshot) => {
                 allCylinders = snapshot.val() || {};
-                renderCylindersTable(allCylinders);
+                
+                // Set otomatis filter tanggal hari ini jika data cylinder mencantumkan tanggal
+                const today = new Date();
+                const day = today.getDate().toString();
+                const monthName = monthsName[today.getMonth()].toLowerCase();
+                
+                document.getElementById('filter-cyl-tgl').value = `${day} ${monthName}`;
+
+                filterCylinders();
             });
         }
 
@@ -344,7 +362,7 @@
             const tbody = document.getElementById('table-cyl-body');
             tbody.innerHTML = '';
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder untuk hari ini.</td></tr>`;
                 return;
             }
             let idx = 1;
@@ -364,12 +382,16 @@
         function filterCylinders() {
             const fCust = document.getElementById('filter-cyl-cust').value.toLowerCase();
             const fJob = document.getElementById('filter-cyl-job').value.toLowerCase();
+            const fTgl = document.getElementById('filter-cyl-tgl').value.toLowerCase();
 
             let filtered = {};
             for (let key in allCylinders) {
                 let i = allCylinders[key];
-                if ((i.cust || '').toLowerCase().includes(fCust) &&
-                    (i.job || '').toLowerCase().includes(fJob)) {
+                let matchCust = (i.cust || '').toLowerCase().includes(fCust);
+                let matchJob = (i.job || '').toLowerCase().includes(fJob);
+                let matchTgl = (i.tgl || '').toLowerCase().includes(fTgl);
+
+                if (matchCust && matchJob && matchTgl) {
                     filtered[key] = i;
                 }
             }
@@ -404,14 +426,12 @@
                     const memoVal = memos[memoKeyClean] || '';
                     const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
                     
-                    // Cek filter kata
                     const isMatch = keyword && memoVal.toLowerCase().includes(keyword);
 
                     const cell = document.createElement('div');
                     cell.className = `cal-cell ${isToday ? 'today' : ''} ${isMatch ? 'filtered-match' : ''}`;
                     cell.innerHTML = `<div class="cal-day-num">${d}</div><div class="cal-memo-text">${memoVal}</div>`;
                     
-                    // Saat tanggal diklik, buka modal box besar untuk membaca isi memo
                     cell.onclick = () => {
                         openModal(`${d} ${monthsName[month]} ${year}`, memoVal || 'Tidak ada catatan pada tanggal ini.');
                     };
