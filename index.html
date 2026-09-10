@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Javaplas 5 Pages - Firebase Read-Only & Filter Calendar</title>
+    
+    <!-- Firebase SDK Compat (v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Courier New', Courier, monospace; background-color: #1a1412; color: #f7e1b5; min-height: 100vh; display: flex; flex-direction: column; }
+
+        .nav-tabs { display: flex; background-color: #3b281a; border-bottom: 3px solid #5c3a21; padding: 10px; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .tab-btn { background-color: #241810; color: #f7e1b5; border: 2px solid #5c3a21; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 12px; }
+        .tab-btn:hover { background-color: #5c3a21; }
+        .tab-btn.active { background-color: #70472a; border-color: #a36b3f; color: #fff; }
+
+        .page-content { display: none; flex: 1; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .page-content.active { display: block; }
+        h2 { margin-bottom: 15px; text-transform: uppercase; border-bottom: 2px solid #5c3a21; padding-bottom: 6px; font-size: 16px; color: #f7e1b5; }
+
+        .import-panel { background-color: #3b281a; border: 2px dashed #8c5830; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-panel { background-color: #3b281a; border: 2px solid #5c3a21; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .filter-panel input { flex: 1; min-width: 140px; }
+
+        .table-wrapper { max-height: 55vh; overflow-y: auto; border: 2px solid #5c3a21; border-radius: 6px; background-color: #241810; margin-top: 10px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11.5px; color: #f4e8c1; }
+        .data-table th, .data-table td { border: 1px solid #4a3223; padding: 8px 10px; text-align: left; }
+        .data-table th { background-color: #4a3223; color: #f7e1b5; position: sticky; top: 0; text-transform: uppercase; }
+
+        .form-control { background: #241810; border: 1px solid #5c3a21; border-radius: 3px; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 11px; padding: 5px; outline: none; }
+
+        .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .note-card { background-color: #3b281a; border: 2px solid #8c5830; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .note-card textarea { background: #241810; border: 1px solid #5c3a21; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 11px; padding: 5px; resize: vertical; height: 70px; outline: none; }
+
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .cal-header-day { background-color: #2b1e18; text-align: center; font-weight: bold; padding: 6px; font-size: 11px; color: #d1b288; border-radius: 4px; }
+        .cal-cell { background-color: #241810; border: 2px solid #4a3223; border-radius: 4px; min-height: 80px; padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+        .cal-cell:hover { border-color: #a36b3f; background-color: #2e2017; }
+        .cal-cell.today { border-color: #f7e1b5; background-color: #4a3223; }
+        .cal-cell.filtered-match { border-color: #f39c12; background-color: #3d2c1d; }
+        .cal-day-num { font-weight: bold; font-size: 11px; }
+        .cal-memo-text { font-size: 9.5px; color: #d1b288; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+        /* Modal Box untuk Detail Memo Kalender */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 400px; max-width: 90%; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
+        .modal-box h3 { font-size: 14px; border-bottom: 1px solid #5c3a21; padding-bottom: 5px; color: #f7e1b5; }
+        .modal-box textarea { background: #241810; border: 1px solid #5c3a21; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 12px; padding: 8px; width: 100%; height: 120px; resize: none; outline: none; }
+        .btn-close { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 11px; align-self: flex-end; }
+        .btn-close:hover { background-color: #70472a; }
+    </style>
+</head>
+<body>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchPage(1)">1. Sticky Notes (Coba)</button>
+        <button class="tab-btn" onclick="switchPage(2)">2. Sticky Notes Javaplas</button>
+        <button class="tab-btn" onclick="switchPage(3)">3. Orderan Masuk</button>
+        <button class="tab-btn" onclick="switchPage(4)">4. Daftar Cylinder</button>
+        <button class="tab-btn" onclick="switchPage(5)">5. Kalender</button>
+    </div>
+
+    <!-- PAGE 1 -->
+    <div id="page-1" class="page-content active">
+        <h2>Page 1: Sticky Notes (Coba)</h2>
+        <div class="import-panel">
+            <span style="font-size: 11px; font-weight: bold;">Import JSON Coba.html Lama:</span>
+            <input type="file" id="import-coba-file" accept=".json" style="font-size: 11px;" onchange="importCobaJson(event)">
+        </div>
+        <div id="container-notes-coba" class="notes-grid"></div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div id="page-2" class="page-content">
+        <h2>Page 2: Sticky Notes Javaplas</h2>
+        <div class="import-panel">
+            <span style="font-size: 11px; font-weight: bold;">Import JSON Javaplas.html Lama:</span>
+            <input type="file" id="import-javaplas-file" accept=".json" style="font-size: 11px;" onchange="importJavaplasJson(event)">
+        </div>
+        <div id="container-notes-javaplas" class="notes-grid"></div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div id="page-3" class="page-content">
+        <h2>Page 3: List Daftar Orderan Masuk</h2>
+        <div class="filter-panel">
+            <span style="font-size: 11px; font-weight: bold;">Filter:</span>
+            <input type="text" id="filter-ord-po" class="form-control" placeholder="Cari No PO..." onkeyup="filterOrders()">
+            <input type="text" id="filter-ord-so" class="form-control" placeholder="Cari No SO..." onkeyup="filterOrders()">
+            <input type="text" id="filter-ord-cust" class="form-control" placeholder="Cari Customer..." onkeyup="filterOrders()">
+            <input type="text" id="filter-ord-job" class="form-control" placeholder="Cari Job..." onkeyup="filterOrders()">
+            <input type="text" id="filter-ord-tgl" class="form-control" placeholder="Cari Tgl/Bln/Thn..." onkeyup="filterOrders()">
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>No</th><th>PO</th><th>SO</th><th>Tanggal</th><th>Customer</th><th>Job</th><th>Ukuran</th><th>Keterangan</th></tr></thead>
+                <tbody id="table-order-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGE 4 -->
+    <div id="page-4" class="page-content">
+        <h2>Page 4: List Daftar Cylinder</h2>
+        <div class="filter-panel">
+            <span style="font-size: 11px; font-weight: bold;">Filter:</span>
+            <input type="text" id="filter-cyl-cust" class="form-control" placeholder="Cari Nama Customer..." onkeyup="filterCylinders()">
+            <input type="text" id="filter-cyl-job" class="form-control" placeholder="Cari Nama Job..." onkeyup="filterCylinders()">
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>No</th><th>No SO</th><th>Customer</th><th>Job</th><th>Panjang Cyl</th><th>Cirkum Cyl</th></tr></thead>
+                <tbody id="table-cyl-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGE 5 -->
+    <div id="page-5" class="page-content">
+        <h2>Page 5: Kalender & Catatan Harian</h2>
+        <div class="filter-panel" style="margin-bottom: 10px;">
+            <span style="font-size: 11px; font-weight: bold;">Cari Kata di Memo Kalender:</span>
+            <input type="text" id="filter-cal-keyword" class="form-control" placeholder="Ketik kata untuk sorot tanggal..." onkeyup="renderCalendar()">
+        </div>
+        <div class="calendar-nav">
+            <button type="button" class="tab-btn" onclick="changeMonth(-1)">◀ Prev</button>
+            <h3 id="cal-title" style="font-size: 14px;">BULAN TAHUN</h3>
+            <button type="button" class="tab-btn" onclick="changeMonth(1)">Next ▶</button>
+        </div>
+        <div class="calendar-grid" id="calendar-grid-box"></div>
+    </div>
+
+    <!-- MODAL POPUP DETAIL MEMO KALENDER -->
+    <div id="cal-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-date-title">Detail Memo</h3>
+            <textarea id="modal-memo-text" readonly></textarea>
+            <button class="btn-close" onclick="closeModal()">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        // --- KONFIGURASI FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2LntheNaxBqsWxLn5vfXVNdFh-x5Eulo",
+            authDomain: "javaplas-database.firebaseapp.com",
+            databaseURL: "https://javaplas-database-default-rtdb.firebaseio.com",
+            projectId: "javaplas-database",
+            storageBucket: "javaplas-database.firebasestorage.app",
+            messagingSenderId: "465686406887",
+            appId: "1:465686406887:web:aa5524000f27f0897fa442",
+            measurementId: "G-Z995X2EYCP"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const monthsName = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+        function switchPage(pageNum) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`page-${pageNum}`).classList.add('active');
+            document.querySelectorAll('.tab-btn')[pageNum - 1].classList.add('active');
+
+            if (pageNum === 3) loadOrders();
+            if (pageNum === 4) loadCylinders();
+            if (pageNum === 5) renderCalendar();
+        }
+
+        // --- IMPORT JSON ---
+        function importCobaJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.stickyNotes) {
+                        db.ref('notes_page_1').remove().then(() => {
+                            data.stickyNotes.forEach(item => db.ref('notes_page_1').push(item.notes || item));
+                        });
+                    }
+                    if (data.orderanMasuk) {
+                        db.ref('orderan_masuk').remove().then(() => {
+                            data.orderanMasuk.forEach(o => {
+                                db.ref('orderan_masuk').push({
+                                    po: o.noPo || '-', so: o.noSo || '-',
+                                    tgl: `${o.tanggal || ''} ${o.bulan || ''} ${o.tahun || ''}`.trim(),
+                                    cust: o.customer || '-', job: o.namaJob || '-',
+                                    ukur: o.ukuran || '-', ket: o.keterangan || '-'
+                                });
+                            });
+                        });
+                    }
+                    if (data.cylinderList) {
+                        db.ref('cylinder_list').remove().then(() => {
+                            data.cylinderList.forEach(c => {
+                                db.ref('cylinder_list').push({
+                                    so: c.noSo || '-', cust: c.customer || '-', job: c.namaJob || '-',
+                                    panjang: c.panjang || '-', cirkum: c.cirkum || '-'
+                                });
+                            });
+                        });
+                    }
+                    alert('Berhasil mengimpor data Coba.html ke Firebase!');
+                    location.reload();
+                } catch (err) { alert('Format file JSON Coba.html tidak valid!'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function importJavaplasJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.stickyNotes) {
+                        db.ref('notes_page_2').remove().then(() => {
+                            data.stickyNotes.forEach(item => db.ref('notes_page_2').push(item.notes || item.text || item));
+                        });
+                    }
+                    if (data.orderanMasuk) {
+                        db.ref('orderan_masuk').remove().then(() => {
+                            data.orderanMasuk.forEach(o => {
+                                db.ref('orderan_masuk').push({
+                                    po: o.noPo || '-', so: o.noSo || '-',
+                                    tgl: `${o.tanggal || ''} ${o.bulan || ''} ${o.tahun || ''}`.trim(),
+                                    cust: o.customer || '-', job: o.namaJob || '-',
+                                    ukur: o.ukuran || '-', ket: o.keterangan || '-'
+                                });
+                            });
+                        });
+                    }
+                    if (data.calendarMemos) {
+                        db.ref('calendar_memos').remove().then(() => {
+                            for (const [key, val] of Object.entries(data.calendarMemos)) {
+                                db.ref('calendar_memos/' + key.replace(/[^a-zA-Z0-9]/g, '_')).set(val);
+                            }
+                        });
+                    }
+                    alert('Berhasil mengimpor data Javaplas.html ke Firebase!');
+                    location.reload();
+                } catch (err) { alert('Format file JSON Javaplas.html tidak valid!'); }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- PAGE 1 & 2: STICKY NOTES (READ-ONLY) ---
+        function renderStickyCoba(data) {
+            const container = document.getElementById('container-notes-coba');
+            container.innerHTML = '';
+            if (!data) { container.innerHTML = '<p style="font-size:11px;">Tidak ada data catatan.</p>'; return; }
+            for (let key in data) {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                card.innerHTML = `<textarea readonly>${data[key]}</textarea>`;
+                container.appendChild(card);
+            }
+        }
+
+        function renderStickyJavaplas(data) {
+            const container = document.getElementById('container-notes-javaplas');
+            container.innerHTML = '';
+            if (!data) { container.innerHTML = '<p style="font-size:11px;">Tidak ada data catatan.</p>'; return; }
+            for (let key in data) {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                card.innerHTML = `<textarea readonly>${data[key]}</textarea>`;
+                container.appendChild(card);
+            }
+        }
+
+        // --- PAGE 3: ORDERAN MASUK ---
+        let allOrders = {};
+        function loadOrders() {
+            db.ref('orderan_masuk').once('value', (snapshot) => {
+                allOrders = snapshot.val() || {};
+                renderOrdersTable(allOrders);
+            });
+        }
+
+        function renderOrdersTable(data) {
+            const tbody = document.getElementById('table-order-body');
+            tbody.innerHTML = '';
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan.</td></tr>`;
+                return;
+            }
+            let idx = 1;
+            for (let key in data) {
+                let i = data[key];
+                tbody.innerHTML += `<tr>
+                    <td>${idx++}</td>
+                    <td>${i.po}</td>
+                    <td>${i.so}</td>
+                    <td>${i.tgl}</td>
+                    <td>${i.cust}</td>
+                    <td>${i.job}</td>
+                    <td>${i.ukur}</td>
+                    <td>${i.ket}</td>
+                </tr>`;
+            }
+        }
+
+        function filterOrders() {
+            const fPo = document.getElementById('filter-ord-po').value.toLowerCase();
+            const fSo = document.getElementById('filter-ord-so').value.toLowerCase();
+            const fCust = document.getElementById('filter-ord-cust').value.toLowerCase();
+            const fJob = document.getElementById('filter-ord-job').value.toLowerCase();
+            const fTgl = document.getElementById('filter-ord-tgl').value.toLowerCase();
+
+            let filtered = {};
+            for (let key in allOrders) {
+                let i = allOrders[key];
+                if ((i.po || '').toLowerCase().includes(fPo) &&
+                    (i.so || '').toLowerCase().includes(fSo) &&
+                    (i.cust || '').toLowerCase().includes(fCust) &&
+                    (i.job || '').toLowerCase().includes(fJob) &&
+                    (i.tgl || '').toLowerCase().includes(fTgl)) {
+                    filtered[key] = i;
+                }
+            }
+            renderOrdersTable(filtered);
+        }
+
+        // --- PAGE 4: CYLINDER ---
+        let allCylinders = {};
+        function loadCylinders() {
+            db.ref('cylinder_list').once('value', (snapshot) => {
+                allCylinders = snapshot.val() || {};
+                renderCylindersTable(allCylinders);
+            });
+        }
+
+        function renderCylindersTable(data) {
+            const tbody = document.getElementById('table-cyl-body');
+            tbody.innerHTML = '';
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder.</td></tr>`;
+                return;
+            }
+            let idx = 1;
+            for (let key in data) {
+                let i = data[key];
+                tbody.innerHTML += `<tr>
+                    <td>${idx++}</td>
+                    <td>${i.so}</td>
+                    <td>${i.cust}</td>
+                    <td>${i.job}</td>
+                    <td>${i.panjang}</td>
+                    <td>${i.cirkum}</td>
+                </tr>`;
+            }
+        }
+
+        function filterCylinders() {
+            const fCust = document.getElementById('filter-cyl-cust').value.toLowerCase();
+            const fJob = document.getElementById('filter-cyl-job').value.toLowerCase();
+
+            let filtered = {};
+            for (let key in allCylinders) {
+                let i = allCylinders[key];
+                if ((i.cust || '').toLowerCase().includes(fCust) &&
+                    (i.job || '').toLowerCase().includes(fJob)) {
+                    filtered[key] = i;
+                }
+            }
+            renderCylindersTable(filtered);
+        }
+
+        // --- PAGE 5: KALENDER DENGAN FILTER KATA & MODAL ---
+        let calDate = new Date();
+        function renderCalendar() {
+            const year = calDate.getFullYear();
+            const month = calDate.getMonth();
+            document.getElementById('cal-title').textContent = `${monthsName[month]} ${year}`;
+            const keyword = document.getElementById('filter-cal-keyword').value.toLowerCase();
+            
+            db.ref('calendar_memos').once('value', (snapshot) => {
+                const memos = snapshot.val() || {};
+                const grid = document.getElementById('calendar-grid-box');
+                grid.innerHTML = '';
+
+                ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].forEach(d => {
+                    grid.innerHTML += `<div class="cal-header-day">${d}</div>`;
+                });
+
+                const firstDay = new Date(year, month, 1).getDay();
+                const totalDays = new Date(year, month + 1, 0).getDate();
+                const today = new Date();
+
+                for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const memoKeyClean = `MEMO_${year}_${month+1}_${d}`;
+                    const memoVal = memos[memoKeyClean] || '';
+                    const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
+                    
+                    // Cek filter kata
+                    const isMatch = keyword && memoVal.toLowerCase().includes(keyword);
+
+                    const cell = document.createElement('div');
+                    cell.className = `cal-cell ${isToday ? 'today' : ''} ${isMatch ? 'filtered-match' : ''}`;
+                    cell.innerHTML = `<div class="cal-day-num">${d}</div><div class="cal-memo-text">${memoVal}</div>`;
+                    
+                    // Saat tanggal diklik, buka modal box besar untuk membaca isi memo
+                    cell.onclick = () => {
+                        openModal(`${d} ${monthsName[month]} ${year}`, memoVal || 'Tidak ada catatan pada tanggal ini.');
+                    };
+                    grid.appendChild(cell);
+                }
+            });
+        }
+
+        function changeMonth(dir) {
+            calDate.setMonth(calDate.getMonth() + dir);
+            renderCalendar();
+        }
+
+        function openModal(dateStr, content) {
+            document.getElementById('modal-date-title').textContent = `Memo Tanggal: ${dateStr}`;
+            document.getElementById('modal-memo-text').value = content;
+            document.getElementById('cal-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('cal-modal').style.display = 'none';
+        }
+
+        // Load data awal dari Firebase saat aplikasi dibuka
+        window.addEventListener('DOMContentLoaded', () => {
+            db.ref('notes_page_1').once('value', (snapshot) => renderStickyCoba(snapshot.val()));
+            db.ref('notes_page_2').once('value', (snapshot) => renderStickyJavaplas(snapshot.val()));
+        });
+    </script>
+</body>
+</html>
