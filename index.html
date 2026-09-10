@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas - Auto Real-Time Sync</title>
+    <title>Javaplas - Clean Columns & Real-Time Sync</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -32,7 +32,7 @@
         .data-table th { background-color: #4a3223; color: #f7e1b5; position: sticky; top: 0; text-transform: uppercase; }
 
         .form-control { background: #241810; border: 1px solid #5c3a21; border-radius: 3px; color: #f7e1b5; font-family: 'Courier New', Courier, monospace; font-size: 11px; padding: 5px; outline: none; }
-        .btn-detail { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-family: 'Courier New', Courier, monospace; font-weight: bold; margin-right: 5px; }
+        .btn-detail { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 10.5px; font-family: 'Courier New', Courier, monospace; font-weight: bold; display: block; margin: 0 auto; }
         .btn-detail:hover { background-color: #70472a; }
 
         .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
@@ -104,7 +104,18 @@
         </div>
         <div class="table-wrapper">
             <table class="data-table">
-                <thead><tr><th>No</th><th>PO</th><th>SO</th><th>Tanggal</th><th>Customer</th><th>Job</th><th>Ukuran</th><th>Keterangan</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Detail</th>
+                        <th>Customer</th>
+                        <th>Job</th>
+                        <th>PO</th>
+                        <th>SO</th>
+                        <th>Tanggal</th>
+                        <th>Ukuran</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
                 <tbody id="table-order-body"></tbody>
             </table>
         </div>
@@ -121,7 +132,16 @@
         </div>
         <div class="table-wrapper">
             <table class="data-table">
-                <thead><tr><th>No</th><th>No SO</th><th>Customer</th><th>Job</th><th>Panjang Cyl</th><th>Cirkum Cyl</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Detail</th>
+                        <th>Customer</th>
+                        <th>Job</th>
+                        <th>No SO</th>
+                        <th>Panjang Cyl</th>
+                        <th>Cirkum Cyl</th>
+                    </tr>
+                </thead>
                 <tbody id="table-cyl-body"></tbody>
             </table>
         </div>
@@ -228,7 +248,7 @@
             reader.readAsText(file);
         }
 
-        // --- REAL-TIME LISTENERS (OTOMATIS MEMBACA PERUBAHAN) ---
+        // --- REAL-TIME LISTENERS ---
         
         // Page 1 & 2: Sticky Notes
         db.ref('notes_page_1').on('value', (snapshot) => {
@@ -251,7 +271,7 @@
             }
         });
 
-        // Page 3: Orderan Masuk (Otomatis Sync)
+        // Page 3: Orderan Masuk
         let allOrders = {};
         db.ref('orderan_masuk').on('value', (snapshot) => {
             allOrders = snapshot.val() || {};
@@ -265,18 +285,17 @@
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Tidak ada data orderan.</td></tr>`;
                 return;
             }
-            let idx = 1;
             for (let key in data) {
                 let i = data[key];
                 const tglGabung = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.trim();
                 const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
-                    <td><button class="btn-detail" onclick="showOrderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
+                    <td><button class="btn-detail" onclick="showOrderDetail(decodeURIComponent('${dataJson}'))">Detail</button></td>
+                    <td>${i.customer || i.cust || '-'}</td>
+                    <td>${i.namaJob || i.job || '-'}</td>
                     <td>${i.noPo || i.po || '-'}</td>
                     <td>${i.noSo || i.so || '-'}</td>
                     <td>${tglGabung}</td>
-                    <td>${i.customer || i.cust || '-'}</td>
-                    <td>${i.namaJob || i.job || '-'}</td>
                     <td>${i.ukuran || i.ukur || '-'}</td>
                     <td>${i.keterangan || i.ket || '-'}</td>
                 </tr>`;
@@ -306,7 +325,7 @@
             renderOrdersTable(filtered);
         }
 
-        // Page 4: Daftar Cylinder (Otomatis Sync)
+        // Page 4: Daftar Cylinder
         let allCylinders = {};
         db.ref('cylinder_list').on('value', (snapshot) => {
             allCylinders = snapshot.val() || {};
@@ -320,15 +339,14 @@
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Tidak ada data cylinder.</td></tr>`;
                 return;
             }
-            let idx = 1;
             for (let key in data) {
                 let i = data[key];
                 const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
-                    <td><button class="btn-detail" onclick="showCylinderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
-                    <td>${i.noSo || i.so || '-'}</td>
+                    <td><button class="btn-detail" onclick="showCylinderDetail(decodeURIComponent('${dataJson}'))">Detail</button></td>
                     <td>${i.customer || i.cust || '-'}</td>
                     <td>${i.namaJob || i.job || '-'}</td>
+                    <td>${i.noSo || i.so || '-'}</td>
                     <td>${i.panjang || i.panjangCylinder || '-'}</td>
                     <td>${i.cirkum || i.cirkumCyl || '-'}</td>
                 </tr>`;
@@ -354,7 +372,7 @@
             renderCylindersTable(filtered);
         }
 
-        // Page 5: Kalender (Otomatis Sync)
+        // Page 5: Kalender
         let calDate = new Date();
         db.ref('calendar_memos').on('value', (snapshot) => {
             renderCalendar(snapshot.val() || {});
