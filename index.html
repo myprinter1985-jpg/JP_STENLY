@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Javaplas 5 Pages - Detail Popup</title>
+    <title>Javaplas 5 Pages - Full Complete Detail</title>
     
     <!-- Firebase SDK Compat (v9) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -51,12 +51,13 @@
 
         /* Modal Box Umum untuk Detail Data */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 450px; max-width: 90%; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
+        .modal-box { background-color: #3b281a; border: 2px solid #8c5830; padding: 20px; border-radius: 6px; width: 500px; max-width: 90%; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
         .modal-box h3 { font-size: 15px; border-bottom: 1px solid #5c3a21; padding-bottom: 6px; color: #f7e1b5; text-transform: uppercase; }
         .modal-content-list { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #f4e8c1; }
         .modal-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #4a3223; padding-bottom: 4px; gap: 10px; }
-        .modal-label { font-weight: bold; color: #d1b288; width: 130px; flex-shrink: 0; }
+        .modal-label { font-weight: bold; color: #d1b288; width: 150px; flex-shrink: 0; }
         .modal-val { text-align: right; word-break: break-all; }
+        .modal-ket-box { background: #241810; border: 1px solid #5c3a21; padding: 8px; border-radius: 4px; font-size: 11.5px; white-space: pre-wrap; margin-top: 5px; color: #f7e1b5; }
         .btn-close { background-color: #5c3a21; color: #f7e1b5; border: 1px solid #8c5830; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 11px; align-self: flex-end; margin-top: 5px; }
         .btn-close:hover { background-color: #70472a; }
     </style>
@@ -179,7 +180,7 @@
             if (pageNum === 5) renderCalendar();
         }
 
-        // --- IMPORT JSON ---
+        // --- IMPORT JSON (MENGAMBIL SEMUA FIELD LENGKAP) ---
         function importCobaJson(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -195,26 +196,18 @@
                     if (data.orderanMasuk) {
                         db.ref('orderan_masuk').remove().then(() => {
                             data.orderanMasuk.forEach(o => {
-                                db.ref('orderan_masuk').push({
-                                    po: o.noPo || '-', so: o.noSo || '-',
-                                    tgl: `${o.tanggal || ''} ${o.bulan || ''} ${o.tahun || ''}`.trim(),
-                                    cust: o.customer || '-', job: o.namaJob || '-',
-                                    ukur: o.ukuran || '-', ket: o.keterangan || '-'
-                                });
+                                db.ref('orderan_masuk').push(o);
                             });
                         });
                     }
                     if (data.cylinderList) {
                         db.ref('cylinder_list').remove().then(() => {
                             data.cylinderList.forEach(c => {
-                                db.ref('cylinder_list').push({
-                                    so: c.noSo || '-', cust: c.customer || '-', job: c.namaJob || '-',
-                                    panjang: c.panjang || '-', cirkum: c.cirkum || '-'
-                                });
+                                db.ref('cylinder_list').push(c);
                             });
                         });
                     }
-                    alert('Berhasil mengimpor data Coba.html ke Firebase!');
+                    alert('Berhasil mengimpor data Coba.html ke Firebase secara lengkap!');
                     location.reload();
                 } catch (err) { alert('Format file JSON Coba.html tidak valid!'); }
             };
@@ -236,12 +229,14 @@
                     if (data.orderanMasuk) {
                         db.ref('orderan_masuk').remove().then(() => {
                             data.orderanMasuk.forEach(o => {
-                                db.ref('orderan_masuk').push({
-                                    po: o.noPo || '-', so: o.noSo || '-',
-                                    tgl: `${o.tanggal || ''} ${o.bulan || ''} ${o.tahun || ''}`.trim(),
-                                    cust: o.customer || '-', job: o.namaJob || '-',
-                                    ukur: o.ukuran || '-', ket: o.keterangan || '-'
-                                });
+                                db.ref('orderan_masuk').push(o);
+                            });
+                        });
+                    }
+                    if (data.cylinderList) {
+                        db.ref('cylinder_list').remove().then(() => {
+                            data.cylinderList.forEach(c => {
+                                db.ref('cylinder_list').push(c);
                             });
                         });
                     }
@@ -252,7 +247,7 @@
                             }
                         });
                     }
-                    alert('Berhasil mengimpor data Javaplas.html ke Firebase!');
+                    alert('Berhasil mengimpor data Javaplas.html ke Firebase secara lengkap!');
                     location.reload();
                 } catch (err) { alert('Format file JSON Javaplas.html tidak valid!'); }
             };
@@ -307,31 +302,32 @@
             let idx = 1;
             for (let key in data) {
                 let i = data[key];
-                // Simpan data dalam bentuk string untuk dipanggil saat tombol Detail diklik
+                const tglGabung = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.trim();
                 const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
                     <td><button class="btn-detail" onclick="showOrderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
-                    <td>${i.po}</td>
-                    <td>${i.so}</td>
-                    <td>${i.tgl}</td>
-                    <td>${i.cust}</td>
-                    <td>${i.job}</td>
-                    <td>${i.ukur}</td>
-                    <td>${i.ket}</td>
+                    <td>${i.noPo || i.po || '-'}</td>
+                    <td>${i.noSo || i.so || '-'}</td>
+                    <td>${tglGabung}</td>
+                    <td>${i.customer || i.cust || '-'}</td>
+                    <td>${i.namaJob || i.job || '-'}</td>
+                    <td>${i.ukuran || i.ukur || '-'}</td>
+                    <td>${i.keterangan || i.ket || '-'}</td>
                 </tr>`;
             }
         }
 
         function showOrderDetail(jsonStr) {
             const i = JSON.parse(jsonStr);
+            const tglGabung = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.trim();
             let html = `
-                <div class="modal-row"><span class="modal-label">No PO</span><span class="modal-val">${i.po}</span></div>
-                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.so}</span></div>
-                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${i.tgl}</span></div>
-                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.cust}</span></div>
-                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.job}</span></div>
-                <div class="modal-row"><span class="modal-label">Ukuran</span><span class="modal-val">${i.ukur}</span></div>
-                <div class="modal-row"><span class="modal-label">Keterangan</span><span class="modal-val">${i.ket}</span></div>
+                <div class="modal-row"><span class="modal-label">No PO</span><span class="modal-val">${i.noPo || i.po || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.noSo || i.so || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${tglGabung}</span></div>
+                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.customer || i.cust || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.namaJob || i.job || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Ukuran</span><span class="modal-val">${i.ukuran || i.ukur || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Keterangan</span><span class="modal-val">${i.keterangan || i.ket || '-'}</span></div>
             `;
             openModal("Detail Orderan Masuk", html);
         }
@@ -346,18 +342,20 @@
             let filtered = {};
             for (let key in allOrders) {
                 let i = allOrders[key];
-                if ((i.po || '').toLowerCase().includes(fPo) &&
-                    (i.so || '').toLowerCase().includes(fSo) &&
-                    (i.cust || '').toLowerCase().includes(fCust) &&
-                    (i.job || '').toLowerCase().includes(fJob) &&
-                    (i.tgl || '').toLowerCase().includes(fTgl)) {
+                let po = (i.noPo || i.po || '').toLowerCase();
+                let so = (i.noSo || i.so || '').toLowerCase();
+                let cust = (i.customer || i.cust || '').toLowerCase();
+                let job = (i.namaJob || i.job || '').toLowerCase();
+                let tgl = `${i.tanggal || i.tgl || ''} ${i.bulan || ''} ${i.tahun || ''}`.toLowerCase();
+
+                if (po.includes(fPo) && so.includes(fSo) && cust.includes(fCust) && job.includes(fJob) && tgl.includes(fTgl)) {
                     filtered[key] = i;
                 }
             }
             renderOrdersTable(filtered);
         }
 
-        // --- PAGE 4: CYLINDER ---
+        // --- PAGE 4: CYLINDER (DENGAN KELENGKAPAN PENUH SEPERTI DI GAMBAR) ---
         let allCylinders = {};
         function loadCylinders() {
             db.ref('cylinder_list').once('value', (snapshot) => {
@@ -383,11 +381,11 @@
                 const dataJson = encodeURIComponent(JSON.stringify(i));
                 tbody.innerHTML += `<tr>
                     <td><button class="btn-detail" onclick="showCylinderDetail(decodeURIComponent('${dataJson}'))">Detail</button> ${idx++}</td>
-                    <td>${i.so}</td>
-                    <td>${i.cust}</td>
-                    <td>${i.job}</td>
-                    <td>${i.panjang}</td>
-                    <td>${i.cirkum}</td>
+                    <td>${i.noSo || i.so || '-'}</td>
+                    <td>${i.customer || i.cust || '-'}</td>
+                    <td>${i.namaJob || i.job || '-'}</td>
+                    <td>${i.panjang || i.panjangCylinder || '-'}</td>
+                    <td>${i.cirkum || i.cirkumCyl || '-'}</td>
                 </tr>`;
             }
         }
@@ -395,13 +393,24 @@
         function showCylinderDetail(jsonStr) {
             const i = JSON.parse(jsonStr);
             let html = `
-                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.so}</span></div>
-                <div class="modal-row"><span class="modal-label">Customer</span><span class="modal-val">${i.cust}</span></div>
-                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.job}</span></div>
-                <div class="modal-row"><span class="modal-label">Panjang Cylinder</span><span class="modal-val">${i.panjang}</span></div>
-                <div class="modal-row"><span class="modal-label">Cirkum Cylinder</span><span class="modal-val">${i.cirkum}</span></div>
+                <div class="modal-row"><span class="modal-label">Tanggal</span><span class="modal-val">${i.tanggal || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Bulan</span><span class="modal-val">${i.bulan || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Tahun</span><span class="modal-val">${i.tahun || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">No SO</span><span class="modal-val">${i.noSo || i.so || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Customer</span><span class="modal-val">${i.customer || i.cust || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Nama Job</span><span class="modal-val">${i.namaJob || i.job || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Panjang Cylinder</span><span class="modal-val">${i.panjang || i.panjangCylinder || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Cirkum Cyl</span><span class="modal-val">${i.cirkum || i.cirkumCyl || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Up</span><span class="modal-val">${i.up || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Pitch</span><span class="modal-val">${i.pitch || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Newbase Qty</span><span class="modal-val">${i.newbaseQty || i.newbase || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Oldbase Qty</span><span class="modal-val">${i.oldbaseQty || i.oldbase || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Cetakan</span><span class="modal-val">${i.cetakan || '-'}</span></div>
+                <div class="modal-row"><span class="modal-label">Cones</span><span class="modal-val">${i.cones || '-'}</span></div>
+                <div style="margin-top: 8px; font-weight: bold; color: #d1b288;">Keterangan:</div>
+                <div class="modal-ket-box">${i.keterangan || i.ket || '-'}</div>
             `;
-            openModal("Detail Cylinder", html);
+            openModal("Detail Cylinder Lengkap", html);
         }
 
         function filterCylinders() {
@@ -412,11 +421,11 @@
             let filtered = {};
             for (let key in allCylinders) {
                 let i = allCylinders[key];
-                let matchCust = (i.cust || '').toLowerCase().includes(fCust);
-                let matchJob = (i.job || '').toLowerCase().includes(fJob);
-                let matchTgl = (i.tgl || '').toLowerCase().includes(fTgl);
+                let cust = (i.customer || i.cust || '').toLowerCase();
+                let job = (i.namaJob || i.job || '').toLowerCase();
+                let tgl = `${i.tanggal || ''} ${i.bulan || ''}`.toLowerCase();
 
-                if (matchCust && matchJob && matchTgl) {
+                if (cust.includes(fCust) && job.includes(fJob) && tgl.includes(fTgl)) {
                     filtered[key] = i;
                 }
             }
